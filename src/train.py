@@ -123,7 +123,7 @@ def get_model(model_id:str,
     lora_dropout=0.0,
     bias="none",
     task_type=TaskType.CAUSAL_LM
-)
+    )
 
     # 3. Create trainable PEFT model
     model = get_peft_model(model, lora_config)
