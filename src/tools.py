@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 import sys
 import argparse
@@ -159,9 +160,12 @@ def setup_server(wiki_path: str):
 
 async def main():
     parser = argparse.ArgumentParser(description="Party Planning Tools MCP Server")
+    script_dir = Path(__file__).parent.parent
+    #print('here', script_dir)
+    #exit()
     parser.add_argument(
         "--wiki-path",
-        default="./data/wiki-18.jsonl",
+        default=f"{script_dir}/data/wiki/wiki-18.jsonl",
         help="Path to Wikipedia JSONL file"
     )
     args = parser.parse_args()

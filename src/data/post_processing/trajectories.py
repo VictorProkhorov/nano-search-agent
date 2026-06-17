@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 import json
 from dataclasses import dataclass
 import torch
@@ -172,6 +173,9 @@ def gen_dataset(messages):
 
 def save_filtered_trajectories(messages:list,
                                path:str):
+    if not messages:
+        print("No messages to save!")
+        return
     dataset = Dataset.from_generator(gen_dataset, gen_kwargs={"messages": messages})
     print(dataset)
     #print(dataset['message'][1])
@@ -179,21 +183,24 @@ def save_filtered_trajectories(messages:list,
     return
 
 def main():
+    script_location = Path(__file__) 
+    project_root = script_location.parent.parent.parent.parent
+    
     model_name = 'Qwen2.5-7B-Instruct'
     dataset_split = 'train'
     
-    file_name = f'../data/trajectories/hotpotqa_{model_name}_{dataset_split}.json'#'../data/trajectories/hotpotqa.json'
+    file_name = f'{project_root}/data/trajectories/hotpotqa_{model_name}_{dataset_split}.json'
     
     trajectories = load_trajectories(file_name)
     print(len(trajectories))
     predicted_answers, messages = filter_trajectories(trajectories)
 
-    file_name = f'../data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'#'../data/trajectories/hotpotqa_gold_answers.txt'
+    file_name = f'{project_root}/data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'
     gold_answers = get_gold_answers(file_name)
     messages = filter_correct_answers(gold_answers, predicted_answers, messages)
     print(len(messages))
 
-    path_to_dataset = '../data/trajectories/filtered/hotpotqa_filtered_trajectories'
+    path_to_dataset = f'{project_root}/data/trajectories/filtered/hotpotqa_filtered_trajectories'
     save_filtered_trajectories(messages,
                                path_to_dataset)
 

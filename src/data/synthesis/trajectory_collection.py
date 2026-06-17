@@ -1,3 +1,4 @@
+from pathlib import Path
 import re, sys, asyncio
 from tqdm import tqdm
 import json
@@ -9,7 +10,7 @@ from datasets import load_dataset, Dataset, DatasetDict
 from mcp.client.session import ClientSession
 from mcp.client.stdio import stdio_client, StdioServerParameters
  
-from mcp_tool_converter import fetch_tools_from_mcp, print_tool_schemas
+from ...mcp_tool_converter import fetch_tools_from_mcp, print_tool_schemas
 
 
 PROMPT = """Answer the given question. You MUST conduct reasoning inside <think> and </think>
@@ -178,13 +179,14 @@ def save_gold_answers(dataset, file_name:str):
 
 async def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    #model_id = 'Qwen/Qwen2.5-7B-Instruct'
-    #model_name = 'Qwen2.5-7B-Instruct'
-    #dataset_split = 'train'
-    model_id = './trained_models/Qwen2.5-0.5B-Instruct-Search-LoRA'
-    model_name = 'Qwen2.5-0.5B-Instruct-Search-LoRA'
+    model_id = 'Qwen/Qwen2.5-7B-Instruct'
+    model_name = 'Qwen2.5-7B-Instruct'
+    dataset_split = 'train'
+    
+    #model_id = f'{project_root}/models/Qwen2.5-0.5B-Instruct-Search-LoRA'
+    #model_name = 'Qwen2.5-0.5B-Instruct-Search-LoRA'
 
-    dataset_split = 'validation'
+    #dataset_split = 'validation'
     
     model, tokenizer = get_model(model_id, device)
     #print(tokenizer.chat_template)
@@ -193,13 +195,16 @@ async def main():
     dataset = get_dataset(dataset_id)
     dataset_sample = get_question_sample(dataset, sample_size=100, split=dataset_split)
     
-    file_name = f'./data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'
+    script_location = Path(__file__) 
+    project_root = script_location.parent.parent.parent.parent 
+    print(project_root)
+    file_name = f'{project_root}/data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'
     save_gold_answers(dataset_sample, file_name)
     #print(tool.tool_schema)
     print("Connecting to MCP server...", file=sys.stderr)
     server_params = StdioServerParameters(
         command="python3",
-        args=["./tools.py"]
+        args=[f"{project_root}/src/tools.py"]
     )
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as mcp_session:
@@ -217,7 +222,7 @@ async def main():
                 print(f"  - {tool['function']['name']}: {tool['function']['description']}", file=sys.stderr)
             
 
-            file_name = f'./data/trajectories/hotpotqa_{model_name}_{dataset_split}.json'
+            file_name = f'{project_root}/data/trajectories/hotpotqa_{model_name}_{dataset_split}.json'
             await unroll(model,
                     tokenizer,
                     dataset_sample,

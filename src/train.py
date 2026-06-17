@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import re
 from functools import partial
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader
@@ -12,7 +13,7 @@ from peft import get_peft_model, LoraConfig, TaskType
 from datasets import load_from_disk, Dataset
 
 
-from mcp_tool_converter import fetch_tools_from_mcp
+from .mcp_tool_converter import fetch_tools_from_mcp
 
 
 import asyncio
@@ -24,12 +25,12 @@ def get_dataset(dataset_id:str):
     dataset = load_from_disk(dataset_id)
     return dataset
 
-def get_tools_sync():
+def get_tools_sync(path):
     """Synchronous wrapper to fetch tools from MCP server"""
     async def fetch():
         server_params = StdioServerParameters(
             command="python3",
-            args=["./tools.py"]
+            args=[f"{path}/src/tools.py"]
         )
         
         async with stdio_client(server_params) as (read_stream, write_stream):
@@ -134,18 +135,21 @@ def get_model(model_id:str,
 
 
 def main():
+    script_dir = Path(__file__).parent.parent
+
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model_id = 'Qwen/Qwen2.5-0.5B-Instruct'
     model, tokenizer = get_model(model_id, device)
-    dataset_id = './data/trajectories/filtered/hotpotqa_filtered_trajectories'
+    dataset_id = f'{script_dir}/data/trajectories/filtered/hotpotqa_filtered_trajectories'
     dataset = get_dataset(dataset_id)
     dataset = dataset.train_test_split(test_size=0.1, seed=42)
 
-    tools = get_tools_sync()
+    tools = get_tools_sync(script_dir)
     tools = [tools[1]]
     collate_fn = Collator(tokenizer, tools)
     
-    model_path = './trained_models/Qwen2.5-0.5B-Instruct-Search-LoRA'
+    model_path = f'{script_dir}/models/Qwen2.5-0.5B-Instruct-Search-LoRA'
     args = TrainingArguments(
         output_dir=model_path,
         per_device_train_batch_size=1,
