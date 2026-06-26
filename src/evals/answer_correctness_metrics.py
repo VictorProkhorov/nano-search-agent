@@ -35,12 +35,13 @@ class CorrectnessMetrics:
 
 class CorrectnessEvaluator:
     """Compute answer correctness metrics"""
-    def __init__(self):
+    def __init__(self, compute_semantic_sas: bool = False):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         
         sas_model_name: str = "cross-encoder/stsb-roberta-large"
         self.sas_tokenizer = AutoTokenizer.from_pretrained(sas_model_name)
         self.sas_model = AutoModelForSequenceClassification.from_pretrained(sas_model_name).to(device)
+        self.compute_semantic_sas = compute_semantic_sas
 
     
     def exact_match(self,
@@ -110,8 +111,8 @@ class CorrectnessEvaluator:
     
     def compute_correctness(self,
                            gold_answers: List[str], 
-                           predicted_answers: List[Optional[str]],
-                           compute_semantic: bool = False) -> CorrectnessMetrics:
+                           predicted_answers: List[str],
+                           ) -> CorrectnessMetrics:
     
         """Compute all answer correctness metrics"""
         assert len(gold_answers) == len(predicted_answers), "Length mismatch"
@@ -123,7 +124,7 @@ class CorrectnessEvaluator:
       
         
         sas_sims = None
-        if compute_semantic:
+        if self.compute_semantic_sas:
             sas_sims = [self.eval_semantic_similarity_sas(g, p) for g, p in zip(gold_answers, predicted_answers)]
             sas_sims = [s for s in sas_sims if s is not None]
             semantic_sim_sas = np.mean(sas_sims) if sas_sims else None

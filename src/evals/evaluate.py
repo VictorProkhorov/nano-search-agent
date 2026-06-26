@@ -45,7 +45,8 @@ class Evaluator:
     """Main evaluation orchestrator"""
     def __init__(self,
                 trajectories_path:str='',
-                answers_path:str=''):
+                answers_path:str='',
+                compute_semantic_sas: bool = False):
     
         print("Loading trajectories...", file=sys.stderr)
         self.trajectories:  List[List[Dict]] = self.load_trajectories(trajectories_path)
@@ -53,12 +54,11 @@ class Evaluator:
         print("Loading gold answers...", file=sys.stderr)
         self.gold_answers: List[str] = self.load_gold_answers(answers_path)
 
-        self.answer_correctness_evaluator = CorrectnessEvaluator()
+        self.answer_correctness_evaluator = CorrectnessEvaluator(compute_semantic_sas=compute_semantic_sas)
 
 
     
-    def evaluate(self,
-                compute_semantic: bool = False) -> ComprehensiveEvalResult:
+    def evaluate(self) -> ComprehensiveEvalResult:
         """
         Full evaluation pipeline.
         
@@ -77,7 +77,7 @@ class Evaluator:
         
         # Compute metrics
         correctness = self.answer_correctness_evaluator.compute_correctness(
-            self.gold_answers, predicted_answers, compute_semantic
+            self.gold_answers, predicted_answers
         )
         """
         grounding = GroundingEvaluator.compute_grounding(trajectories, gold_answers)
@@ -225,8 +225,9 @@ def main():
     gold_answers_path = f'{base_dir}/data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'
     
     evaluator = Evaluator(trajectories_path=trajectories_path,
-                        answers_path=gold_answers_path)
-    result = evaluator.evaluate(compute_semantic=True)
+                        answers_path=gold_answers_path,
+                        compute_semantic_sas=True)
+    result = evaluator.evaluate()
     print(result.summary())
 
 
