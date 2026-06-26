@@ -13,4 +13,5 @@ A pipeline for synthesizing, filtering, and fine-tuning a Qwen2.5-Instruct model
 ## Project Structure
  
 python3 -m src.data.synthesis.trajectory_collection
+
 python3 -m src.evals.evaluate
