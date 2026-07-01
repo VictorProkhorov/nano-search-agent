@@ -39,8 +39,7 @@ Evaluation: [How well does predicted match gold? What's correct/missing/wrong?]
 Rating: [1, 2, 3, or 4]"""
 
 
-ATTRIBUTION_PROPMT =
-f"""Given the following retrieved documents and a question, determine if the answer is supported/entailed by the content given the question.
+ATTRIBUTION_PROPMT = """Given the following retrieved documents and a question, determine if the answer is supported/entailed by the content given the question.
  
 Question: {question}
 
@@ -61,6 +60,7 @@ class Answer_Metrics:
     semantic_similarity_sas: Optional[float] = None
     case_insensitive_em: float = 0.0
     semantic_similarity_judge: Optional[float] = None
+    attribution_score: Optional[float] = None 
     
     def to_dict(self):
         return {
@@ -69,6 +69,7 @@ class Answer_Metrics:
             'semantic_similarity_sas': self.semantic_similarity_sas,
             'semantic_similarity_judge': self.semantic_similarity_judge,
             'case_insensitive_em': self.case_insensitive_em,
+            'attribution_score': self.attribution_score
         }
  
 
@@ -257,7 +258,8 @@ class Answer_Evaluator:
     def compute(self,
                 gold_answers: List[str], 
                 predicted_answers: List[str],
-                questions: List[str]
+                questions: List[str],
+                trajectories: List[List[dict]]
                 ) -> CorrectnessMetrics:
     
         """Compute all answer correctness metrics"""
@@ -279,17 +281,24 @@ class Answer_Evaluator:
 
         if self.compute_semantic_judge:
             judge_sims = [self.eval_semantic_similarity_judge(q, g, p) for g, p, q in tqdm(zip(gold_answers, predicted_answers, questions))]
-            judge_sims = [s for s in judge_sims if s is not None]
+            #judge_sims = [s for s in judge_sims if s is not None]
             semantic_sim_judge = np.mean(judge_sims) if judge_sims else None
         else:
             semantic_sim_judge = None
 
-        
+        if self.compute_attribution:
+            attribution_scores = [self.eval_answer_attribution(question, traj, pred_answer)\
+                                                        for question, traj, pred_answer in tqdm(zip(questions, trajectories, predicted_answers))]
+            attribution_score = np.mean(attribution_scores) if attribution_scores else None
+        else:
+            attribution_score = None
+
         return Answer_Metrics(
             exact_match=np.mean(ems),
             token_f1=np.mean(f1s),
             semantic_similarity_sas=semantic_sim_sas,
             semantic_similarity_judge=semantic_sim_judge,
             case_insensitive_em=np.mean(ci_ems),
+            attribution_score = attribution_score
         )
  

@@ -34,9 +34,10 @@ class Eval_Result:
                     Case-Insensitive (EM):   {self.answer.case_insensitive_em:.3f}
                     Semantic Sim (Semantic Answer Similarity):       {self.answer.semantic_similarity_sas or 'N/A'}
                     Semantic Sim (LLM-as-a-Judge):       {self.answer.semantic_similarity_judge or 'N/A'}
+                    Attribution:                         {self.answer.attribution_score or 'N/A'}
                     
                 TRAJECTORY
-                    Answer Extraction Rate:            {self.trajectory.answer_format_rate:.3f}
+                    Answer Extraction Rate:             {self.trajectory.answer_format_rate:.3f}
                     % of Trajectories with Reasoning:   {self.trajectory.has_reasoning:.3f}
                     Av. Num. Reasoning Steps:           {self.trajectory.av_num_reasoning_steps: .3f}
                     % of Trajectories with a Tool Call: {self.trajectory.has_tool_call: .3f}
@@ -54,7 +55,8 @@ class Evaluator:
                 trajectories_path:str='',
                 answers_path:str='',
                 compute_semantic_sas: bool = False,
-                compute_semantic_judge: bool = False):
+                compute_semantic_judge: bool = False,
+                compute_attribution:bool = False):
     
         print("Loading trajectories...", file=sys.stderr)
         self.trajectories:  List[List[Dict]] = self.load_trajectories(trajectories_path)
@@ -63,7 +65,8 @@ class Evaluator:
         self.gold_answers: List[str] = self.load_gold_answers(answers_path)
 
         self.answer_correctness_evaluator = Answer_Evaluator(compute_semantic_sas=compute_semantic_sas,
-                                                                compute_semantic_judge=compute_semantic_judge)
+                                                            compute_semantic_judge=compute_semantic_judge,
+                                                            compute_attribution=compute_attribution)
 
         self.trajectory_evaluator = Trajectory_Evaluator()
     
@@ -84,7 +87,7 @@ class Evaluator:
         
         # Compute metrics
         answer_correctness = self.answer_correctness_evaluator.compute(
-            self.gold_answers, predicted_answers, questions
+            self.gold_answers, predicted_answers, questions, self.trajectories
         
         )
         trajectory = self.trajectory_evaluator.compute(self.trajectories)
@@ -143,7 +146,8 @@ def main():
     evaluator = Evaluator(trajectories_path=trajectories_path,
                         answers_path=gold_answers_path,
                         compute_semantic_sas=True,
-                        compute_semantic_judge=False)
+                        compute_semantic_judge=False,
+                        compute_attribution=True)
     result = evaluator.evaluate()
     print(result.summary())
 
