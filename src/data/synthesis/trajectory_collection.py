@@ -12,19 +12,43 @@ from mcp.client.stdio import stdio_client, StdioServerParameters
  
 from ...mcp_tool_converter import fetch_tools_from_mcp, print_tool_schemas
 
-
-PROMPT = """Answer the given question. You MUST conduct reasoning inside <think> and </think>
+"""
+PROMPT = Answer the given question. You MUST conduct reasoning inside <think> and </think>
 first. After reasoning, if you find you lack some
 knowledge, you can call a search engine by <tool_call> query </tool_call>, and it will
 return the top searched results between <tool_response> and </tool_response>. You
 can search as many times as you want. If you find no further external knowledge
 needed, provide the answer inside <answer> and </answer> without
-detailed illustrations and the answer should be no more than three words. For example, <answer> xxx </answer>. Question: {question}"""
+detailed illustrations and the answer should be no more than three words. For example, <answer> xxx </answer>. Question: {question}
+"""
 
+PROMPT = """Answer the given question by following the provided instructions bellow.
+
+INSTRUCTIONS:
+1. First, conduct reasoning inside <think> and </think>
+2. If you lack knowledge, call search engine with <tool_call>
+3. Repeat thinking and searching until you have enough information
+4. Synthesize results into a final answer
+
+FORMAT:
+
+<think>
+[Your reasoning and analysis]
+</think>
+
+Then execute:
+- Use <tool_call> query </tool_call> to search when needed
+- Results appear between <tool_response> and </tool_response>
+- Repeat <think> and <tool_call> as needed
+
+Finally, provide your answer:
+<answer>answer in no more than 3 words</answer>
+
+Question: {question}"""
 
 
 def get_model(model_id:str,
-            device:torch.device):
+             device:torch.device):
     model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     return model, tokenizer
@@ -42,7 +66,6 @@ def get_question_sample(dataset:DatasetDict,
     g = torch.Generator()
     g.manual_seed(42)
     sample_ids = torch.randperm(num_questions, generator=g)[:sample_size]
-    #print(sample_ids)
     data_sample = dataset[sample_ids]
     return data_sample
 
@@ -54,7 +77,6 @@ def build_initial_messages(question: str) -> List[Dict[str, Any]]:
 
 
 async def run_searches(query_list: List[str], tool_name: str, mcp_session: ClientSession) -> str:
-    """Run tool via MCP server"""
     try:
         if tool_name == 'search':
             result = await mcp_session.call_tool("search", {"query_list": query_list})
@@ -75,10 +97,7 @@ async def run_searches(query_list: List[str], tool_name: str, mcp_session: Clien
 
 
 async def extract_tool_call(decoded: str):
-    """
-    Qwen2.5-Instruct emits tool calls as a JSON block inside <tool_call>…</tool_call>.
-    Returns (tool_name, arguments_dict) or (None, None).
-    """
+   
     m = re.search(r"<tool_call>\s*(.*?)\s*</tool_call>", decoded, re.S)
     if not m:
         return None, None
@@ -161,11 +180,12 @@ async def unroll(model:torch.nn.Module,
                     "content": results_text,
                 })
             #print(messages)
-            #print("\n===== Final message history =====")
-            #for m in messages:
-            #    role = m["role"].upper()
-            #    content = (m["content"] or "")#[:200]  # truncate for display
-            #    print(f"[{role}] {content}…\n")
+            print("\n===== Final message history =====")
+            for m in messages:
+                role = m["role"].upper()
+                content = (m["content"] or "")#[:200]  # truncate for display
+                print(f"[{role}] {content}…\n")
+            exit()
             f.write(json.dumps(messages) + "\n")
     return
 
