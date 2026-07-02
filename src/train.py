@@ -12,6 +12,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingA
 from peft import get_peft_model, LoraConfig, TaskType
 from datasets import load_from_disk, Dataset
 
+from hydra import initialize, compose
+from omegaconf import OmegaConf
 
 from .mcp_tool_converter import fetch_tools_from_mcp
 
@@ -24,6 +26,20 @@ from mcp.client.session import ClientSession
 def get_dataset(dataset_id:str):
     dataset = load_from_disk(dataset_id)
     return dataset
+
+
+def load_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config-name", default="config")
+    parser.add_argument("overrides", nargs="*", default=[],
+                       help="Override config values: key=value")
+    args = parser.parse_args()
+    with initialize(version_base=None, config_path="./conf"):
+        config = compose(config_name=args.config_name, 
+                     overrides=args.overrides)  # specify your default config
+        print(config)
+    return config
+
 
 def get_tools_sync(path):
     """Synchronous wrapper to fetch tools from MCP server"""
@@ -135,37 +151,37 @@ def get_model(model_id:str,
 
 
 def main():
-    script_dir = Path(__file__).parent.parent
+    script_dir = Path().parent.parent
+    config = load_config()
 
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model_id = 'Qwen/Qwen2.5-0.5B-Instruct'
+    model_id = config.model.id
     model, tokenizer = get_model(model_id, device)
-    dataset_id = f'{script_dir}/data/trajectories/filtered/hotpotqa_filtered_trajectories'
+    
+    dataset_id = f'{script_dir}{config.dataset.id}'
     dataset = get_dataset(dataset_id)
     dataset = dataset.train_test_split(test_size=0.1, seed=42)
 
     tools = get_tools_sync(script_dir)
-    tools = [tools[1]]
+    #tools = [tools[1]]
     collate_fn = Collator(tokenizer, tools)
     
     model_path = f'{script_dir}/models/Qwen2.5-0.5B-Instruct-Search-LoRA'
     args = TrainingArguments(
         output_dir=model_path,
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
-        eval_strategy="epoch",
-        logging_strategy="epoch",
-        gradient_accumulation_steps=1,
-        num_train_epochs=15,
-        #weight_decay=0.01,
-        lr_scheduler_type="constant",
-        learning_rate=1e-5,
-        save_strategy="no",
-        #fp16=True,
-        remove_unused_columns=False,
-        push_to_hub=False,
-        optim='paged_adamw_8bit')
+        per_device_train_batch_size=config.trainer.per_device_train_batch_size,
+        per_device_eval_batch_size=config.trainer.per_device_eval_batch_size,
+        eval_strategy=config.trainer.eval_strategy,
+        logging_strategy=config.trainer.logging_strategy,
+        gradient_accumulation_steps=config.trainer.gradient_accumulation_steps,
+        num_train_epochs=config.trainer.num_train_epochs,
+        lr_scheduler_type=config.trainer.lr_scheduler_type,
+        learning_rate=config.trainer.learning_rate,
+        save_strategy=config.trainer.save_strategy,
+        remove_unused_columns=config.trainer.remove_unused_columns,
+        push_to_hub=config.trainer.push_to_hub,
+        optim=config.trainer.opim)
     
     trainer = Trainer(
         model=model,

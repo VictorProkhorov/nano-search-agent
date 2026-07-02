@@ -1,0 +1,10 @@
+model:
+  name: 'Qwen2.5-0.5B-Instruct-Search-LoRA'
+
+dataset:
+  split: 'validation'
+
+eval:
+  compute_semantic_sas: True
+  compute_semantic_judge: False
+  compute_attribution: False

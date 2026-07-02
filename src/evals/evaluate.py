@@ -1,8 +1,13 @@
 import re
 import sys
 import json
+import argparse
 from pathlib import Path
 from dataclasses import dataclass, field
+
+from hydra import initialize, compose
+from omegaconf import OmegaConf
+
 
 from .answer_metrics import Answer_Evaluator, Answer_Metrics
 from .trajectory_metrics import Trajectory_Evaluator, Trajectory_Metrics
@@ -37,8 +42,8 @@ class Eval_Result:
                     Attribution:                         {self.answer.attribution_score or 'N/A'}
                     
                 TRAJECTORY
-                    Answer Extraction Rate:             {self.trajectory.answer_format_rate:.3f}
-                    % of Trajectories with Reasoning:   {self.trajectory.has_reasoning:.3f}
+                    Answer Extraction Rate:              {self.trajectory.answer_format_rate:.3f}
+                    % of Trajectories with Reasoning:    {self.trajectory.has_reasoning:.3f}
                     Av. Num. Reasoning Steps:           {self.trajectory.av_num_reasoning_steps: .3f}
                     % of Trajectories with a Tool Call: {self.trajectory.has_tool_call: .3f}
                     Av. Num. Tool Calls:                {self.trajectory.av_num_tool_calls: .3f}
@@ -131,23 +136,31 @@ class Evaluator:
         question = trajectory[0]['content'].split('Question:')[1].strip()
         return question
     
-    
+def load_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config-name", default="config")
+    parser.add_argument("overrides", nargs="*", default=[],
+                       help="Override config values: key=value")
+    args = parser.parse_args()
+    with initialize(version_base=None, config_path="./conf"):
+        config = compose(config_name=args.config_name, 
+                     overrides=args.overrides)  # specify your default config
+        print(config)
+    return config
  
 
 def main():
-    model_name = 'Qwen2.5-0.5B-Instruct-Search-LoRA'
-    #model_name = 'Qwen2.5-0.5B-Instruct'
-    dataset_split = 'validation'
-
-    base_dir = Path(__file__).parent.parent.parent
-    trajectories_path = f'{base_dir}/data/trajectories/hotpotqa_{model_name}_{dataset_split}.json'
-    gold_answers_path = f'{base_dir}/data/trajectories/hotpotqa_gold_answers_{model_name}_{dataset_split}.txt'
+    config = load_config()
+    
+    base_dir = Path().parent.parent.parent
+    trajectories_path = f'{base_dir}/data/trajectories/hotpotqa_{config.model.name}_{config.dataset.split}.json'
+    gold_answers_path = f'{base_dir}/data/trajectories/hotpotqa_gold_answers_{config.model.name}_{config.dataset.split}.txt'
     
     evaluator = Evaluator(trajectories_path=trajectories_path,
                         answers_path=gold_answers_path,
-                        compute_semantic_sas=True,
-                        compute_semantic_judge=False,
-                        compute_attribution=True)
+                        compute_semantic_sas=config.eval.compute_semantic_sas,
+                        compute_semantic_judge=config.eval.compute_semantic_judge,
+                        compute_attribution=config.eval.compute_attribution)
     result = evaluator.evaluate()
     print(result.summary())
 
