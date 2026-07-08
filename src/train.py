@@ -12,6 +12,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingA
 from peft import get_peft_model, LoraConfig, TaskType
 from datasets import load_from_disk, Dataset
 
+import argparse
 from hydra import initialize, compose
 from omegaconf import OmegaConf
 
@@ -181,7 +182,7 @@ def main():
         save_strategy=config.trainer.save_strategy,
         remove_unused_columns=config.trainer.remove_unused_columns,
         push_to_hub=config.trainer.push_to_hub,
-        optim=config.trainer.opim)
+        optim=config.trainer.optim)
     
     trainer = Trainer(
         model=model,

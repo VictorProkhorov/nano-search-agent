@@ -203,7 +203,8 @@ async def main():
     project_root = script_location.parent.parent.parent.parent 
     
     # Model
-    model, tokenizer = get_model(config.model.id, device)
+    model_id = str(project_root) + config.model.id if config.model.local_path else config.model.id
+    model, tokenizer = get_model(model_id, device)
    
     # Data
     dataset = get_dataset(config.dataset.id)
